@@ -137,6 +137,7 @@ class OGRCARTOTableLayer : public OGRCARTOLayer
     bool                bDeferredCreation;
     bool                bCartodbfy;
     int                 nMaxChunkSize;
+    bool                bDropOnCreate;
 
     void                BuildWhere();
     std::vector<bool>   m_abFieldSetForInsert;
@@ -188,17 +189,19 @@ class OGRCARTOTableLayer : public OGRCARTOLayer
         { return bDeferredCreation; }
     void                CancelDeferredCreation()
         { bDeferredCreation = false; bCartodbfy = false; }
+    void                DropOnCreate()
+        { bDropOnCreate = true; }
 
     OGRErr              FlushDeferredBuffer(bool bReset = true);
     void                RunDeferredCartofy();
 
     OGRErr              FlushDeferredInsert( bool bReset = true );
     OGRErr              FlushDeferredCopy( bool bReset = true );
-    OGRErr              ICreateFeatureInsert( OGRFeature *poFeature, 
-                                              bool bHasUserFieldMatchingFID, 
+    OGRErr              ICreateFeatureInsert( OGRFeature *poFeature,
+                                              bool bHasUserFieldMatchingFID,
                                               bool bHasJustGotNextFID );
-    OGRErr              ICreateFeatureCopy( OGRFeature *poFeature, 
-                                            bool bHasUserFieldMatchingFID, 
+    OGRErr              ICreateFeatureCopy( OGRFeature *poFeature,
+                                            bool bHasUserFieldMatchingFID,
                                             bool bHasJustGotNextFID );
     char *              OGRCARTOGetHexGeometry( OGRGeometry* poGeom, int i );
 };
@@ -239,6 +242,7 @@ class OGRCARTODataSource : public OGRDataSource
     bool                bReadWrite;
     bool                bBatchInsert;
     bool                bCopyMode;
+    bool                bDropOnCreate;
 
     bool                bUseHTTPS;
 
@@ -273,7 +277,9 @@ class OGRCARTODataSource : public OGRDataSource
                                      OGRSpatialReference *poSpatialRef = nullptr,
                                      OGRwkbGeometryType eGType = wkbUnknown,
                                      char ** papszOptions = nullptr ) override;
-    virtual OGRErr      DeleteLayer(int) override;
+    virtual OGRErr      DeleteLayer(int iLayer) override
+        { bDropOnCreate = true; return DeleteLayer(iLayer, true); }
+    virtual OGRErr      DeleteLayer(int, bool);
 
     virtual OGRLayer *  ExecuteSQL( const char *pszSQLCommand,
                                     OGRGeometry *poSpatialFilter,

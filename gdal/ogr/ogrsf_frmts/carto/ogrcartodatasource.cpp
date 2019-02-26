@@ -44,6 +44,7 @@ OGRCARTODataSource::OGRCARTODataSource() :
     bReadWrite(false),
     bBatchInsert(true),
     bCopyMode(true),
+    bDropOnCreate(false),
     bUseHTTPS(false),
     bMustCleanPersistent(false),
     bHasOGRMetadataFunction(-1),
@@ -420,14 +421,16 @@ OGRLayer   *OGRCARTODataSource::ICreateLayer( const char *pszNameIn,
 /*      Do we already have this layer?  If so, should we blow it        */
 /*      away?                                                           */
 /* -------------------------------------------------------------------- */
+    bool bOverwriteOption = CSLFetchNameValue( papszOptions, "OVERWRITE" ) != nullptr
+                            && !EQUAL(CSLFetchNameValue(papszOptions,"OVERWRITE"),"NO");
+
     for( int iLayer = 0; iLayer < nLayers; iLayer++ )
     {
         if( EQUAL(pszNameIn,papoLayers[iLayer]->GetName()) )
         {
-            if( CSLFetchNameValue( papszOptions, "OVERWRITE" ) != nullptr
-                && !EQUAL(CSLFetchNameValue(papszOptions,"OVERWRITE"),"NO") )
+            if( bOverwriteOption )
             {
-                DeleteLayer( iLayer );
+                DeleteLayer( iLayer, true );
             }
             else
             {
@@ -450,6 +453,8 @@ OGRLayer   *OGRCARTODataSource::ICreateLayer( const char *pszNameIn,
     }
 
     OGRCARTOTableLayer* poLayer = new OGRCARTOTableLayer(this, osName);
+    if ( bDropOnCreate || bOverwriteOption )
+        poLayer->DropOnCreate();
     const bool bGeomNullable =
         CPLFetchBool(papszOptions, "GEOMETRY_NULLABLE", true);
     int nSRID = (poSpatialRef && eGType != wkbNone) ? FetchSRSId( poSpatialRef ) : 0;
@@ -493,7 +498,7 @@ OGRLayer   *OGRCARTODataSource::ICreateLayer( const char *pszNameIn,
 /*                            DeleteLayer()                             */
 /************************************************************************/
 
-OGRErr OGRCARTODataSource::DeleteLayer(int iLayer)
+OGRErr OGRCARTODataSource::DeleteLayer(int iLayer, bool bDeferSQLDrop)
 {
     if( !bReadWrite )
     {
@@ -516,7 +521,9 @@ OGRErr OGRCARTODataSource::DeleteLayer(int iLayer)
 /* -------------------------------------------------------------------- */
     CPLString osLayerName = papoLayers[iLayer]->GetLayerDefn()->GetName();
 
-    CPLDebug( "CARTO", "DeleteLayer(%s)", osLayerName.c_str() );
+    CPLDebug( "CARTO", "DeleteLayer(%s) - DeferSQLDrop(%d)",
+             osLayerName.c_str(),
+             bDeferSQLDrop );
 
     int bDeferredCreation = papoLayers[iLayer]->GetDeferredCreation();
     papoLayers[iLayer]->CancelDeferredCreation();
@@ -528,7 +535,7 @@ OGRErr OGRCARTODataSource::DeleteLayer(int iLayer)
     if (osLayerName.empty())
         return OGRERR_NONE;
 
-    if( !bDeferredCreation )
+    if( !bDeferredCreation && !bDeferSQLDrop )
     {
         CPLString osSQL;
         osSQL.Printf("DROP TABLE %s",
@@ -567,19 +574,19 @@ json_object* OGRCARTODataSource::RunCopyFrom(const char* pszSQL, const char* psz
     const char* pszAPIURL = GetAPIURL();
     CPLString osURL(pszAPIURL);
     osURL += "/copyfrom?q=";
-    
+
     if( !(strlen(pszSQL)>0) )
     {
         CPLDebug( "CARTO", "RunCopyFrom: pszSQL is empty" );
         return nullptr;
     }
-    
+
     if( !(strlen(pszCopyFile)>0) )
     {
         CPLDebug( "CARTO", "RunCopyFrom: pszCopyFile is empty" );
         return nullptr;
     }
-    
+
 /* -------------------------------------------------------------------- */
 /*  URL encode the COPY sql and add to URL with API key                 */
 /* -------------------------------------------------------------------- */
@@ -593,13 +600,13 @@ json_object* OGRCARTODataSource::RunCopyFrom(const char* pszSQL, const char* psz
         osURL += "&api_key=";
         osURL += osAPIKey;
     }
-    
+
 /* -------------------------------------------------------------------- */
 /*  Set the POST payload                                                */
 /* -------------------------------------------------------------------- */
     CPLString osSQL("POSTFIELDS=");
     osSQL += pszCopyFile;
-    
+
 /* -------------------------------------------------------------------- */
 /*  Make the HTTP request                                               */
 /* -------------------------------------------------------------------- */
@@ -612,7 +619,7 @@ json_object* OGRCARTODataSource::RunCopyFrom(const char* pszSQL, const char* psz
         CPLDebug( "CARTO", "RunCopyFrom: null return from CPLHTTPFetch" );
         return nullptr;
     }
-    
+
 /* -------------------------------------------------------------------- */
 /*      Check for some error conditions and report.  HTML Messages      */
 /*      are transformed info failure.                                   */
@@ -642,7 +649,7 @@ json_object* OGRCARTODataSource::RunCopyFrom(const char* pszSQL, const char* psz
         CPLHTTPDestroyResult(psResult);
         return nullptr;
     }
-    
+
     json_object* poObj = nullptr;
     const char* pszText = reinterpret_cast<const char*>(psResult->pabyData);
     if( !OGRJSonParse(pszText, &poObj, true) )
@@ -875,7 +882,7 @@ OGRLayer * OGRCARTODataSource::ExecuteSQLInternal( const char *pszSQLCommand,
             if( EQUAL(papoLayers[iLayer]->GetName(),
                       pszLayerName ))
             {
-                DeleteLayer( iLayer );
+                DeleteLayer( iLayer, false );
                 break;
             }
         }
