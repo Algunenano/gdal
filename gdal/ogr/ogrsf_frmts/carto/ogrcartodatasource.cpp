@@ -471,6 +471,12 @@ OGRLayer   *OGRCARTODataSource::ICreateLayer( const char *pszNameIn,
                         "Cannot register table in dashboard with "
                         "cdb_cartodbfytable() since its SRS is not EPSG:4326");
             }
+            else
+            {
+                CPLError(CE_Warning, CPLE_AppDefined,
+                        "Cannot register table in dashboard with "
+                        "cdb_cartodbfytable() since its SRS is not defined");
+            }
             bCartoify = false;
         }
     }
