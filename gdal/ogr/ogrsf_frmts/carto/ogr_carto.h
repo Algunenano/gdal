@@ -197,11 +197,11 @@ class OGRCARTOTableLayer : public OGRCARTOLayer
 
     OGRErr              FlushDeferredInsert( bool bReset = true );
     OGRErr              FlushDeferredCopy( bool bReset = true );
-    OGRErr              ICreateFeatureInsert( OGRFeature *poFeature,
-                                              bool bHasUserFieldMatchingFID,
+    OGRErr              ICreateFeatureInsert( OGRFeature *poFeature, 
+                                              bool bHasUserFieldMatchingFID, 
                                               bool bHasJustGotNextFID );
-    OGRErr              ICreateFeatureCopy( OGRFeature *poFeature,
-                                            bool bHasUserFieldMatchingFID,
+    OGRErr              ICreateFeatureCopy( OGRFeature *poFeature, 
+                                            bool bHasUserFieldMatchingFID, 
                                             bool bHasJustGotNextFID );
     char *              OGRCARTOGetHexGeometry( OGRGeometry* poGeom, int i );
 };

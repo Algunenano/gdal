@@ -574,19 +574,19 @@ json_object* OGRCARTODataSource::RunCopyFrom(const char* pszSQL, const char* psz
     const char* pszAPIURL = GetAPIURL();
     CPLString osURL(pszAPIURL);
     osURL += "/copyfrom?q=";
-
+    
     if( !(strlen(pszSQL)>0) )
     {
         CPLDebug( "CARTO", "RunCopyFrom: pszSQL is empty" );
         return nullptr;
     }
-
+    
     if( !(strlen(pszCopyFile)>0) )
     {
         CPLDebug( "CARTO", "RunCopyFrom: pszCopyFile is empty" );
         return nullptr;
     }
-
+    
 /* -------------------------------------------------------------------- */
 /*  URL encode the COPY sql and add to URL with API key                 */
 /* -------------------------------------------------------------------- */
@@ -600,13 +600,13 @@ json_object* OGRCARTODataSource::RunCopyFrom(const char* pszSQL, const char* psz
         osURL += "&api_key=";
         osURL += osAPIKey;
     }
-
+    
 /* -------------------------------------------------------------------- */
 /*  Set the POST payload                                                */
 /* -------------------------------------------------------------------- */
     CPLString osSQL("POSTFIELDS=");
     osSQL += pszCopyFile;
-
+    
 /* -------------------------------------------------------------------- */
 /*  Make the HTTP request                                               */
 /* -------------------------------------------------------------------- */
@@ -619,7 +619,7 @@ json_object* OGRCARTODataSource::RunCopyFrom(const char* pszSQL, const char* psz
         CPLDebug( "CARTO", "RunCopyFrom: null return from CPLHTTPFetch" );
         return nullptr;
     }
-
+    
 /* -------------------------------------------------------------------- */
 /*      Check for some error conditions and report.  HTML Messages      */
 /*      are transformed info failure.                                   */
@@ -649,7 +649,7 @@ json_object* OGRCARTODataSource::RunCopyFrom(const char* pszSQL, const char* psz
         CPLHTTPDestroyResult(psResult);
         return nullptr;
     }
-
+    
     json_object* poObj = nullptr;
     const char* pszText = reinterpret_cast<const char*>(psResult->pabyData);
     if( !OGRJSonParse(pszText, &poObj, true) )
